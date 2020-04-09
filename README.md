@@ -6,12 +6,14 @@ This is a simple data science project that solves the following regression probl
 
 ## Directions for default usage
 1. Make sure to have the following packages installed:
-  -`numpy`
-  -`pandas`
-  -`sklearn`
-  -`keras`
-  -`joblib`
-  -`warnings`
+    - `numpy`
+    - `pandas`
+    - `sklearn`
+    - `keras`
+    - `joblib`
+    - `warnings`
+    
+   (You can run `python3 -m pip install <package>` in your terminal)
 2. Run `load_and_save_data.py`
 3. Run `train.py`
 4. Run `eval.py <model>`, where `<model>` is any of `lr`, `lr_speed`, or `nn`. `lr` is the model for a regular linear regression model, `lr_speed` is a linear regression model that predicts speed first before converting to duration, and `nn` uses a neural network to predict the duration.
