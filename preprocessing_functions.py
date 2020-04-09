@@ -104,26 +104,18 @@ def train_linreg_model(df, target, output_path):
 def train_nn_model(df, target, architecture, output_path):
     """Train a neural network and save it."""
     net = Sequential()
-    net.add(Dense(128, input_dim=36, activation='relu'))
-    net.add(Dense(64, activation='relu'))
-    net.add(Dense(16, activation='relu'))
+    for i in range(architecture['n_hidden_layers']):
+        d = architecture[i]['dim']
+        act_fn = architecture[i]['act_fn']
+        if i == 0:
+            net.add(Dense(d, input_dim=architecture['input_dim'], activation=act_fn))
+        else:
+            net.add(Dense(d, activation=act_fn))
     net.add(Dense(1))
-    net.compile(optimizer='adam', loss='mean_squared_error', metrics=['mape'])
-    net.fit(df, target, epochs=5, batch_size=10)
+    optimizer, loss, metrics = architecture['optimizer'], architecture['loss'], architecture['metrics']
+    net.compile(optimizer=optimizer, loss=loss, metrics=metrics)
+    net.fit(df, target, epochs=architecture['epochs'], batch_size=architecture['batch_size'])
     joblib.dump(net, output_path)
-    # net = Sequential()
-    # for i in range(architecture['n_hidden_layers']):
-    #     d = architecture[i]['dim']
-    #     act_fn = architecture[i]['act_fn']
-    #     if i == 0:
-    #         net.add(Dense(d, input_dim=architecture['input_dim'], activation=act_fn))
-    #     else:
-    #         net.add(Dense(d, activation=act_fn))
-    # net.add(Dense(1))
-    # optimizer, loss, metrics = architecture['optimizer'], architecture['loss'], architecture['metrics']
-    # net.compile(optimizer=optimizer, loss=loss, metrics=metrics)
-    # net.fit(df, target, epochs=architecture['epochs'], batch_size=architecture['batch_size'])
-    # joblib.dump(net, output_path)
 
 
 def predict(df, model):

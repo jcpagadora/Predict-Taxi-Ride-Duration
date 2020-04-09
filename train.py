@@ -17,6 +17,9 @@ data[config.AUX_TARGET] = pf.speed(data)
 # Divide the data into training and test sets, with target TARGET
 X_train, X_test, y_train, y_test = pf.divide_train_test(data, config.TARGET)
 
+# Get the speed
+y_train_aux = X_train[config.AUX_TARGET]
+
 # Add time-based features and the speed columns
 X_train = pf.add_features(X_train)
 
@@ -49,7 +52,7 @@ assert X_train.columns.tolist() == config.FEATURES
 pf.train_linreg_model(X_train, y_train, config.LINEAR_REG_MODEL_PATH)
 
 # Train the linear regression model via speed
-pf.train_linreg_model(X_train, y_train, config.LINEAR_REG_SPEED_MODEL_PATH)
+pf.train_linreg_model(X_train, y_train_aux, config.LINEAR_REG_SPEED_MODEL_PATH)
 
 # Train the neural network
 pf.train_nn_model(X_train, y_train, config.NET_ARCHITECTURE_AND_PARAMETERS, config.NEURAL_NET_MODEL_PATH)

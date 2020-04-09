@@ -36,7 +36,7 @@ NET_ARCHITECTURE_AND_PARAMETERS = {
     'optimizer': 'adam',
     'loss': 'mean_squared_error',
     'metrics': ['mape'],
-    'epochs': 10,
+    'epochs': 7,
     'batch_size': 10
 }
 
