@@ -61,11 +61,11 @@ def main():
     X_test = process_test_set(X_test)
 
     if arg == config.LR_ARG:
-        preds = pf.predict(X_test, config.LINEAR_REG_MODEL_PATH)
+        preds = pf.predict(X_test, config.LINEAR_REG_MODEL_PATH) ** 3
     if arg == config.NN_ARG:
         preds = pf.predict(X_test, config.NEURAL_NET_MODEL_PATH)
         pred_n = preds.shape[0]
-        preds = preds.reshape((pred_n,))
+        preds = preds.reshape((pred_n,)) ** 3
     if arg == config.LR_SPEED_ARG:
         preds = pf.predict(X_test, config.LINEAR_REG_SPEED_MODEL_PATH)
         preds = (1 / preds) * distance * 3600

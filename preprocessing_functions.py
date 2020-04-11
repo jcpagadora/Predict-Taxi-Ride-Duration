@@ -67,9 +67,11 @@ def add_region(df, bounds):
     return df
 
 
-def cbrt_transform(df, var):
+def cbrt_transform(data, var=None):
     """Perform a cube-root transformation on the given variable."""
-    return np.cbrt(df[var])
+    if not var:
+        return np.cbrt(data)
+    return np.cbrt(data[var])
 
 
 def concat_dfs(df1, lst_dfs):

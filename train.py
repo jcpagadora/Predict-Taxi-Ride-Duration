@@ -29,6 +29,7 @@ X_train = pf.add_region(X_train, config.REGION_BOUNDS)
 # Apply cube-root transformation
 for var in config.CBRT_TRANSFORM:
     X_train[var] = pf.cbrt_transform(X_train, var)
+y_train = pf.cbrt_transform(y_train)
 
 # Train standard scaler on numerical variables only
 scaled = X_train[config.NUM_VARS].copy()
