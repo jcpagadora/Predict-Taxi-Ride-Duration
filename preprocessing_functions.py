@@ -11,7 +11,8 @@ from keras.layers import Dense
 
 class Pipeline:
 
-    def __init__(self, features, y, time_pickup, location_pickup, var_to_cbrt, cat_vars, test_size=0.2, random_state=0):
+    def __init__(self, features, y, time_pickup, location_pickup, var_to_cbrt,
+                 cat_vars, num_vars, test_size=0.2, random_state=0):
         # Initialize data
         self.X_train = None
         self.y_train = None
@@ -26,6 +27,7 @@ class Pipeline:
         self.location_pickup = location_pickup
         self.var_to_cbrt = var_to_cbrt
         self.cat_vars = cat_vars
+        self.num_vars = num_vars
 
         # Region bounds, to be learned from training
         self.bounds = []
@@ -41,12 +43,10 @@ class Pipeline:
         pickup_time = pd.to_datetime(df[self.time_pickup])
         df.loc[:, 'hour'] = pickup_time.dt.hour
         df.loc[:, 'day'] = pickup_time.dt.weekday
-        df.loc[:, 'weekend'] = (pickup_time.dt.weekday >= 5).astype(int)
-        df.loc[:, 'time_of_day'] = np.digitize(pickup_time.dt.hour, [0, 6, 18])
         return df
 
     def cbrt_transform(self, df):
-        df["cbrt_"+self.var_to_cbrt] = np.cbrt(df[self.var_to_cbrt])
+        df.loc[:, "cbrt_" + self.var_to_cbrt] = np.cbrt(df[self.var_to_cbrt])
         return df
 
     def calculate_regions(self):
@@ -56,10 +56,10 @@ class Pipeline:
     def add_regions(self, df):
         first_pc = calc_first_pc(df)
         bounds = self.bounds
-        df['region'] = np.zeros(len(df))
-        df['region'] = np.where((bounds[0] < first_pc) & (first_pc <= bounds[1]), 0, df['region'])
-        df['region'] = np.where((bounds[1] < first_pc) & (first_pc <= bounds[2]), 1, df['region'])
-        df['region'] = np.where((bounds[2] < first_pc) & (first_pc <= bounds[3]), 2, df['region'])
+        df.loc[:, 'region'] = np.zeros(len(df))
+        df.loc[:, 'region'] = np.where((bounds[0] < first_pc) & (first_pc <= bounds[1]), 0, df['region'])
+        df.loc[:, 'region'] = np.where((bounds[1] < first_pc) & (first_pc <= bounds[2]), 1, df['region'])
+        df.loc[:, 'region'] = np.where((bounds[2] < first_pc) & (first_pc <= bounds[3]), 2, df['region'])
         return df
 
     def encode_categorical(self, df):
@@ -85,15 +85,18 @@ class Pipeline:
         self.X_train = self.add_regions(self.X_train)
         self.X_test = self.add_regions(self.X_test)
 
+        self.scaler.fit(self.X_train[self.num_vars])
+
+        scaled_train = self.X_train[self.num_vars].copy()
+        scaled_test = self.X_test[self.num_vars].copy()
+        scaled_train.iloc[:, :] = self.scaler.transform(scaled_train)
+        scaled_test.iloc[:, :] = self.scaler.transform(scaled_test)
+
         categoricals_train = self.encode_categorical(self.X_train)
-        self.X_train = concat_dfs(self.X_train, categoricals_train)
         categoricals_test = self.encode_categorical(self.X_test)
-        self.X_test = concat_dfs(self.X_test, categoricals_test)
 
-        self.scaler.fit(self.X_train[self.features])
-
-        self.X_train = self.scaler.transform(self.X_train[self.features])
-        self.X_test = self.scaler.transform(self.X_test[self.features])
+        self.X_train = concat_dfs(scaled_train, categoricals_train)
+        self.X_test = concat_dfs(scaled_test, categoricals_test)
 
         self.model.fit(self.X_train, np.cbrt(self.y_train))
 
@@ -103,24 +106,27 @@ class Pipeline:
         data = self.add_time_vars(data)
         data = self.cbrt_transform(data)
         data = self.add_regions(data)
+        scaled = data[self.num_vars].copy()
+        scaled.iloc[:, :] = self.scaler.transform(scaled)
         categoricals = self.encode_categorical(data)
-        data = concat_dfs(data, categoricals)
-        data = self.scaler.transform(data[self.features])
+        data = concat_dfs(scaled, categoricals)
         return data
 
     def predict(self, data):
         data = self.transform(data)
-        predictions = self.model.predict(data)
-        return predictions ** 3
+        predictions = self.model.predict(data) ** 3
+        return predictions
 
     def eval_model(self):
         preds = self.model.predict(self.X_train) ** 3
         # Print training RMSE
-        print("Training RMSE: ", np.sqrt(np.sum((preds - self.y_train) ** 2)))
+        rmse = np.sqrt(np.mean((self.y_train - preds) ** 2))
+        print("Training RMSE: ", rmse)
 
         preds = self.model.predict(self.X_test) ** 3
         # Print training RMSE
-        print("Training RMSE: ", np.sqrt(np.sum((preds - self.y_test) ** 2)))
+        rmse = np.sqrt(np.mean((self.y_test - preds) ** 2))
+        print("Test-set RMSE: ", rmse)
 
 
 # ===================================================
@@ -134,6 +140,7 @@ def calc_first_pc(df):
     X = (D - pca_means) / np.sqrt(pca_n)
     u, s, vt = np.linalg.svd(X, full_matrices=False)
     return (X @ vt.T)[0]
+
 
 def load_data(df_path):
     """Load the data from df_path as a pandas dataframe"""

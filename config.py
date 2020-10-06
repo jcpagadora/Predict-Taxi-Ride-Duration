@@ -9,7 +9,7 @@ TARGET = 'duration'
 # For categorical variable 'region,' using PCA
 REGION_BOUNDS = [-2.65160160e-04, -4.79023218e-05, 4.64432561e-05, 5.70759348e-04]
 
-NUM_VARS = ['pickup_lon', 'pickup_lat', 'dropoff_lon', 'dropoff_lat', 'distance']
+NUM_VARS = ['pickup_lon', 'pickup_lat', 'dropoff_lon', 'dropoff_lat', 'cbrt_distance']
 TIME_PICKUP = 'pickup_datetime'
 LOCATION_PICKUP = ['pickup_lon', 'pickup_lat']
 CAT_VARS = ['hour', 'day', 'region']
