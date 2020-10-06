@@ -3,6 +3,7 @@ import pandas as pd
 import sqlite3
 import datetime
 import warnings
+import config
 
 # ===============================================================================
 # Run this file to load the data set and perform the necessary cleaning
@@ -14,7 +15,7 @@ warnings.simplefilter("ignore")
 # Connect to the taxi database
 conn = sqlite3.connect('taxi.db')
 
-# We will select all taxi rides within the following boundaries which approximately
+# Selects all taxi rides within the following boundaries which approximately
 # contains all of Manhattan
 lon_bounds = [-74.03, -73.75]
 lat_bounds = [40.6, 40.88]
@@ -78,10 +79,9 @@ atypical = [1, 2, 3, 18, 23, 24, 25, 26]
 typical_dates = [datetime.date(2016, 1, n) for n in range(1, 32) if n not in atypical]
 manhattan_taxi_final = manhattan_taxi[manhattan_taxi['date'].isin(typical_dates)]
 
-#print(manhattan_taxi.shape)
 
 # Finally, save our cleaned data set
-manhattan_taxi_final.to_csv('manhattan_taxi.csv', index=False)
+manhattan_taxi_final.to_csv(config.PATH_TO_DATASET, index=False)
 
 # =================================================================================
 

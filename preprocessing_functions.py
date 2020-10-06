@@ -9,9 +9,131 @@ from keras.models import Sequential
 from keras.layers import Dense
 
 
+class Pipeline:
+
+    def __init__(self, features, y, time_pickup, location_pickup, var_to_cbrt, cat_vars, test_size=0.2, random_state=0):
+        # Initialize data
+        self.X_train = None
+        self.y_train = None
+        self.X_test = None
+        self.y_test = None
+
+        self.features = features
+        self.y = y
+
+        # Initialize features to engineer
+        self.time_pickup = time_pickup
+        self.location_pickup = location_pickup
+        self.var_to_cbrt = var_to_cbrt
+        self.cat_vars = cat_vars
+
+        # Region bounds, to be learned from training
+        self.bounds = []
+
+        # Initialize scalers and models
+        self.scaler = StandardScaler()
+        self.model = LinearRegression()
+
+        self.test_size = test_size
+        self.random_state = random_state
+
+    def add_time_vars(self, df):
+        pickup_time = pd.to_datetime(df[self.time_pickup])
+        df.loc[:, 'hour'] = pickup_time.dt.hour
+        df.loc[:, 'day'] = pickup_time.dt.weekday
+        df.loc[:, 'weekend'] = (pickup_time.dt.weekday >= 5).astype(int)
+        df.loc[:, 'time_of_day'] = np.digitize(pickup_time.dt.hour, [0, 6, 18])
+        return df
+
+    def cbrt_transform(self, df):
+        df["cbrt_"+self.var_to_cbrt] = np.cbrt(df[self.var_to_cbrt])
+        return df
+
+    def calculate_regions(self):
+        first_pc = calc_first_pc(self.X_train)
+        self.bounds = pd.qcut(first_pc, 3, retbins=True)[1]
+
+    def add_regions(self, df):
+        first_pc = calc_first_pc(df)
+        bounds = self.bounds
+        df['region'] = np.zeros(len(df))
+        df['region'] = np.where((bounds[0] < first_pc) & (first_pc <= bounds[1]), 0, df['region'])
+        df['region'] = np.where((bounds[1] < first_pc) & (first_pc <= bounds[2]), 1, df['region'])
+        df['region'] = np.where((bounds[2] < first_pc) & (first_pc <= bounds[3]), 2, df['region'])
+        return df
+
+    def encode_categorical(self, df):
+        """Perform one-hot encoding for the categorical variable var."""
+        categoricals = []
+        for var in self.cat_vars:
+            categoricals.append(pd.get_dummies(df[var], prefix=var, drop_first=True))
+        return categoricals
+
+    def fit(self, data):
+        self.X_train, self.X_test, self.y_train, self.y_test = train_test_split(
+            data, data[self.y],
+            test_size=self.test_size,
+            random_state=self.random_state)
+
+        self.X_train = self.add_time_vars(self.X_train)
+        self.X_test = self.add_time_vars(self.X_test)
+
+        self.X_train = self.cbrt_transform(self.X_train)
+        self.X_test = self.cbrt_transform(self.X_test)
+
+        self.calculate_regions()
+        self.X_train = self.add_regions(self.X_train)
+        self.X_test = self.add_regions(self.X_test)
+
+        categoricals_train = self.encode_categorical(self.X_train)
+        self.X_train = concat_dfs(self.X_train, categoricals_train)
+        categoricals_test = self.encode_categorical(self.X_test)
+        self.X_test = concat_dfs(self.X_test, categoricals_test)
+
+        self.scaler.fit(self.X_train[self.features])
+
+        self.X_train = self.scaler.transform(self.X_train[self.features])
+        self.X_test = self.scaler.transform(self.X_test[self.features])
+
+        self.model.fit(self.X_train, np.cbrt(self.y_train))
+
+        return self
+
+    def transform(self, data):
+        data = self.add_time_vars(data)
+        data = self.cbrt_transform(data)
+        data = self.add_regions(data)
+        categoricals = self.encode_categorical(data)
+        data = concat_dfs(data, categoricals)
+        data = self.scaler.transform(data[self.features])
+        return data
+
+    def predict(self, data):
+        data = self.transform(data)
+        predictions = self.model.predict(data)
+        return predictions ** 3
+
+    def eval_model(self):
+        preds = self.model.predict(self.X_train) ** 3
+        # Print training RMSE
+        print("Training RMSE: ", np.sqrt(np.sum((preds - self.y_train) ** 2)))
+
+        preds = self.model.predict(self.X_test) ** 3
+        # Print training RMSE
+        print("Training RMSE: ", np.sqrt(np.sum((preds - self.y_test) ** 2)))
+
+
 # ===================================================
 #  Individual pre-processing and training functions
 # ===================================================
+
+def calc_first_pc(df):
+    D = df[['pickup_lon', 'pickup_lat']]
+    pca_n = len(df)
+    pca_means = D.apply(np.mean, axis=0)
+    X = (D - pca_means) / np.sqrt(pca_n)
+    u, s, vt = np.linalg.svd(X, full_matrices=False)
+    return (X @ vt.T)[0]
 
 def load_data(df_path):
     """Load the data from df_path as a pandas dataframe"""
@@ -22,11 +144,6 @@ def divide_train_test(df, target):
     """Divides the dataframe into a training and test set, with specified target variable"""
     X_train, X_test, y_train, y_test = train_test_split(df, df[target], test_size=0.2, random_state=0)
     return X_train, X_test, y_train, y_test
-
-
-def speed(df):
-    """Takes in the dataframe and returns the average speed in mph"""
-    return df['distance'] / df['duration'] * 60 * 60
 
 
 def add_features(df):
